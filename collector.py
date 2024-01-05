@@ -31,7 +31,7 @@ def gather_data():
                 'Lowest Price': text[10][1].split(' ')[2]}
     
     return {'buy_offers': buy_offers,
-            'sell_ffers': sell_offers}
+            'sell_offers': sell_offers}
 
 
     
@@ -39,3 +39,5 @@ def gather_data():
 
 
 
+if __name__ == '__main__':
+    pass

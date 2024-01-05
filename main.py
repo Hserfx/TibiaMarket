@@ -20,7 +20,7 @@ class WindowMgr:
         if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
             self._handle = hwnd
 
-    def find_window_wildcard(self, wildcard):
+    def find_window_wildcard(self, wildcard,):
         """find a window whose title matches the wildcard regex"""
         self._handle = None
         win32gui.EnumWindows(self._window_enum_callback, wildcard)
@@ -30,25 +30,14 @@ class WindowMgr:
         win32gui.SetForegroundWindow(self._handle)
 
 
-
-
-if __name__ == '__main__':
-
+def find_item_details(item_name):
+    """!!!MARKET HAS TO BE OPENED ALREADY
+    find item details and gather ocr data to dict
+    """
     w = WindowMgr()
-    w.find_window_wildcard('.*Tibia*')
-    w.set_foreground()
 
-    pg.write('Eloelo123!')
-    time.sleep(1)
-    pg.press('enter')
-    time.sleep(2)
-    pg.press('enter')
-    time.sleep(2)
-    pg.click(x=862, y=388, button='right')
-    time.sleep(1)
-    pg.click(x=1882, y=501, button='right')
-    time.sleep(1)
-    pg.write('tibia coins')
+    pg.click(x=714, y=744)
+    pg.write(item_name)
     time.sleep(1)
     pg.click(x=665, y=494)
     time.sleep(1)
@@ -56,5 +45,40 @@ if __name__ == '__main__':
 
     w.find_window_wildcard(".*Podgląd w oknie.*")
     w.set_foreground()
-    data = collector.gather_data()
-    print(data)
+    
+    return collector.gather_data()
+
+
+if __name__ == '__main__':
+
+    
+
+    # focus on tibia window (fullscreen 1920x1080)
+    tibia_x, tibia_y = pg.locateCenterOnScreen('tibia.png')
+    pg.click(tibia_x, tibia_y)
+
+    # login
+    pg.write('Eloelo123!')
+    time.sleep(1)
+    pg.press('enter')
+    time.sleep(2)
+    pg.press('enter')
+    time.sleep(2)
+
+    # Open market (depot in front of you)
+    pg.click(x=862, y=388, button='right')
+    time.sleep(1)
+    pg.click(x=1882, y=501, button='right')
+    time.sleep(1)
+
+    
+
+    # Collect ocr data from market
+    item_data = find_item_details('tibia coins')
+
+    # Logout fully
+    pg.click(x=1902, y=340)
+    time.sleep(.5)
+    pg.click(x=1030, y=579)
+    time.sleep(.5)
+    pg.click(x=1299, y=729)
