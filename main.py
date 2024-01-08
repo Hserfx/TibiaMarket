@@ -43,7 +43,8 @@ def find_item_details(item_name):
     find item details and gather ocr data to dict
     """
     w = WindowMgr()
-
+    pg.click(x=757, y=747)
+    time.sleep(.1)
     pg.click(x=714, y=744)
     pg.write(item_name)
     time.sleep(1)
@@ -112,22 +113,26 @@ if __name__ == '__main__':
     time.sleep(2)
 
 
-    # Collect ocr data from market
-    try:
-        item_data = find_item_details('tibia coins')
-    except Exception as e:
-        print(e)
-        logging.error('Error while collecting ocr data', exc_info=True)
+    # Collect ocr data from market and send to elastic
+    with open('item_list.txt') as file:
+        item_list = [item.rstrip() for item in file.readlines()]
 
-    response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
+    for item in item_list:
+        try:
+            item_data = find_item_details(item)
+        except Exception as e:
+            print(e)
+            logging.error('Error while collecting ocr data', exc_info=True)
 
-    if response.status_code == 200:
-        print('Data sent successfully')
-        logging.info('Data sent successfully')
-    else:
-        print('Data could not be send')
-        logging.info(f'Data could not be send with status code {response.status_code}')
-        raise Exception(response.text)
+        response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
+
+        if response.status_code == 200:
+            print('Data sent successfully')
+            logging.info('Data sent successfully')
+        else:
+            print('Data could not be send')
+            logging.info(f'Data could not be send with status code {response.status_code}')
+            raise Exception(response.text)
         
     
     # Logout
