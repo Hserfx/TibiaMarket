@@ -1,12 +1,11 @@
 import pyautogui as pg
-import win32gui
+import win32gui, win32con
 import re
 import time
 import collector
 import requests
 import json
 from dotenv import dotenv_values
-
 
 
 class WindowMgr:
@@ -30,13 +29,12 @@ class WindowMgr:
         self._handle = None
         win32gui.EnumWindows(self._window_enum_callback, wildcard)
 
-    def set_foreground(self):
-        """put the window in the foreground"""
-        win32gui.SetForegroundWindow(self._handle)
 
-    def set_focus(self):
-        """put focus on the window"""
-        win32gui.SetFocus(self._handle)
+    def set_foreground(self):
+        """put the window in the foreground and maximize it"""
+        win32gui.SetForegroundWindow(self._handle)
+        win32gui.ShowWindow(self._handle, win32con.SW_MAXIMIZE)
+
 
 
 def find_item_details(item_name):
@@ -54,6 +52,7 @@ def find_item_details(item_name):
 
     w.find_window_wildcard(".*Podgląd w oknie.*")
     w.set_foreground()
+
     
     return collector.gather_data(item_name)
 
@@ -90,6 +89,7 @@ def save_to_elastic(data, ip, port):
 if __name__ == '__main__':
 
     config = dotenv_values('.env')
+
 
     # focus on tibia window (fullscreen 1920x1080)
     tibia_x, tibia_y = pg.locateCenterOnScreen('tibia.png')
