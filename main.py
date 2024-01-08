@@ -6,6 +6,7 @@ import collector
 import requests
 import json
 from dotenv import dotenv_values
+import logging
 
 
 class WindowMgr:
@@ -83,12 +84,13 @@ def save_to_elastic(data, ip, port):
     payload = '\n' + post_data + '\n'
 
     response = requests.post(url, headers=headers, data=payload, verify=False, auth=basic)
-    return response.text
+    return response
 
 
 if __name__ == '__main__':
 
     config = dotenv_values('.env')
+    logging.basicConfig(filename='app.log', filemode='w+', format='%(asctime)s - %(message)s')
 
 
     # focus on tibia window (fullscreen 1920x1080)
@@ -105,15 +107,28 @@ if __name__ == '__main__':
 
     # Open market (depot in front of you)
     pg.click(x=862, y=388, button='right')
-    time.sleep(1)
+    time.sleep(2)
     pg.click(x=1882, y=501, button='right')
-    time.sleep(1)
+    time.sleep(2)
 
 
     # Collect ocr data from market
-    item_data = find_item_details('tibia coins')
-    status = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
-    print(status)
+    try:
+        item_data = find_item_details('tibia coins')
+    except Exception as e:
+        print(e)
+        logging.error('Error while collecting ocr data', exc_info=True)
+
+    response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
+
+    if response.status_code == 200:
+        print('Data sent successfully')
+        logging.info('Data sent successfully')
+    else:
+        print('Data could not be send')
+        logging.info(f'Data could not be send with status code {response.status_code}')
+        raise Exception(response.text)
+        
     
     # Logout
     pg.keyDown('alt')
