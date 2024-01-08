@@ -5,13 +5,9 @@ import time
 import collector
 import requests
 import json
+from dotenv import dotenv_values
 
-url = "http://192.168.0.201:9200/_bulk?pretty"
 
-headers = {
-    "Authorization": "eU5ZTzI0d0JFLXhhNzVSVkFqUVU6UTZrYU5wNVNTUE81cEI5WV9jNG1jQQ==",
-    "Content-Type": "application/json"
-}
 
 class WindowMgr:
     """Encapsulates some calls to the winapi for window management"""
@@ -61,8 +57,19 @@ def find_item_details(item_name):
     
     return collector.gather_data(item_name)
 
-def save_to_elastic(data):
-    basic = requests.auth.HTTPBasicAuth("elastic", "elastic")
+
+def save_to_elastic(data, ip, port):
+    """save json data to elasticsearch http://{ip:port}/_bulk?pretty"""
+
+    config = dotenv_values('.env')
+    url = f"http://{ip}:{port}/_bulk?pretty"
+
+    headers = {
+        "Authorization": "eU5ZTzI0d0JFLXhhNzVSVkFqUVU6UTZrYU5wNVNTUE81cEI5WV9jNG1jQQ==",
+        "Content-Type": "application/json"
+    }
+
+    basic = requests.auth.HTTPBasicAuth(config['BASIC_AUTH'], config['BASIC_AUTH'])
     url = "https://192.168.0.201:9200/_bulk?pretty"
     headers = {
         "Authorization": "eU5ZTzI0d0JFLXhhNzVSVkFqUVU6UTZrYU5wNVNTUE81cEI5WV9jNG1jQQ==",
@@ -73,7 +80,6 @@ def save_to_elastic(data):
     post_data = f"""
     {index_data}
     {data}
-    \n
     """
     payload = '\n' + post_data + '\n'
 
@@ -83,14 +89,14 @@ def save_to_elastic(data):
 
 if __name__ == '__main__':
 
-    
+    config = dotenv_values('.env')
 
     # focus on tibia window (fullscreen 1920x1080)
     tibia_x, tibia_y = pg.locateCenterOnScreen('tibia.png')
     pg.click(tibia_x, tibia_y)
 
     # login
-    pg.write('Eloelo123!')
+    pg.write(config['PASS'])
     time.sleep(1)
     pg.press('enter')
     time.sleep(2)
@@ -103,14 +109,13 @@ if __name__ == '__main__':
     pg.click(x=1882, y=501, button='right')
     time.sleep(1)
 
-    
 
     # Collect ocr data from market
     item_data = find_item_details('tibia coins')
-    status = save_to_elastic(item_data)
+    status = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
     print(status)
     
-    # Logout fully
+    # Logout
     pg.keyDown('alt')
     time.sleep(.2)
     pg.press('tab')
@@ -121,5 +126,7 @@ if __name__ == '__main__':
     pg.click(x=1902, y=340)
     time.sleep(.5)
     pg.click(x=1030, y=579)
+
+    # Leave character select
     time.sleep(1)
     pg.click(x=1299, y=729)
