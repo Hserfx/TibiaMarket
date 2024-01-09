@@ -1,12 +1,11 @@
 import pyautogui as pg
+from pynput import keyboard
 import win32gui, win32con
 import re
 import time
-import collector
-import requests
 import json
 from dotenv import dotenv_values
-import logging
+import collector
 
 
 class WindowMgr:
@@ -25,10 +24,23 @@ class WindowMgr:
         if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
             self._handle = hwnd
 
+    def _window_enum_callback_exact(self, hwnd, wildcard):
+        """Pass to win32gui.EnumWindows() to check all the opened windows
+        and matches with exact window name
+        """
+        if wildcard == str(win32gui.GetWindowText(hwnd)):
+            self._handle = hwnd
+
     def find_window_wildcard(self, wildcard,):
         """find a window whose title matches the wildcard regex"""
         self._handle = None
         win32gui.EnumWindows(self._window_enum_callback, wildcard)
+
+    def find_window_wildcard_exact(self, wildcard,):
+        """find a window whose title matches the wildcard regex"""
+        self._handle = None
+        win32gui.EnumWindows(self._window_enum_callback_exact, wildcard)
+
 
 
     def set_foreground(self):
@@ -42,6 +54,7 @@ def find_item_details(item_name):
     """!!!MARKET HAS TO BE OPENED ALREADY
     find item details and gather ocr data to dict
     """
+
     w = WindowMgr()
     pg.click(x=757, y=747)
     time.sleep(.1)
@@ -62,6 +75,7 @@ def find_item_details(item_name):
 def save_to_elastic(data, ip, port):
     """save json data to elasticsearch http://{ip:port}/_bulk?pretty"""
 
+    import requests
     config = dotenv_values('.env')
     url = f"http://{ip}:{port}/_bulk?pretty"
 
@@ -77,7 +91,7 @@ def save_to_elastic(data, ip, port):
         "Content-Type": "application/x-ndjson"
     }
     
-    index_data = '{ "index" : { "_index" : "tibia-marketdata" } }'
+    index_data = '{ "index" : { "_index" : "tibiamarket-data" } }'
     post_data = f"""
     {index_data}
     {data}
@@ -87,66 +101,96 @@ def save_to_elastic(data, ip, port):
     response = requests.post(url, headers=headers, data=payload, verify=False, auth=basic)
     return response
 
+# program closing safety
+def on_press(key):
+    """to work app needs to be after his final step,
+    waiting for loop to start again"""
+    global closed
+    try:
+        if key.char == ';':
+            logging.info('Program closed by user')
+            closed = True
+            return False
+    except AttributeError:
+        pass
+
+
 
 if __name__ == '__main__':
+    import sys
+    import logging
 
     config = dotenv_values('.env')
-    logging.basicConfig(filename='app.log', filemode='w+', format='%(asctime)s - %(message)s')
+    logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s - %(message)s')
+
+    listener = keyboard.Listener(on_press=on_press)
+
+    listener.start()
+
+    closed = False
+
+    #loop every 10min
+    while not closed:
+        # focus on tibia window (fullscreen 1920x1080)
+        w = WindowMgr()
+        w.find_window_wildcard_exact("Tibia")
+        w.set_foreground()
+
+        # login
+        pg.write(config['PASS'])
+        time.sleep(1)
+        pg.press('enter')
+        time.sleep(2)
+        pg.press('enter')
+        time.sleep(2)
+
+        # Open market (depot in front of you)
+        pg.click(x=862, y=388, button='right')
+        time.sleep(2)
+        pg.click(x=1882, y=501, button='right')
+        time.sleep(2)
 
 
-    # focus on tibia window (fullscreen 1920x1080)
-    tibia_x, tibia_y = pg.locateCenterOnScreen('tibia.png')
-    pg.click(tibia_x, tibia_y)
+        # Collect ocr data from market and send to elastic
+        with open('item_list.txt') as file:
+            item_list = [item.rstrip() for item in file.readlines()]
 
-    # login
-    pg.write(config['PASS'])
-    time.sleep(1)
-    pg.press('enter')
-    time.sleep(2)
-    pg.press('enter')
-    time.sleep(2)
+        for item in item_list:
+            try:
+                item_data = find_item_details(item)
+            except Exception as e:
+                logging.error('Error while collecting ocr data', exc_info=True)
+                collector.grab_image('log.png')
+                raise Exception(e)
 
-    # Open market (depot in front of you)
-    pg.click(x=862, y=388, button='right')
-    time.sleep(2)
-    pg.click(x=1882, y=501, button='right')
-    time.sleep(2)
+            response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
 
-
-    # Collect ocr data from market and send to elastic
-    with open('item_list.txt') as file:
-        item_list = [item.rstrip() for item in file.readlines()]
-
-    for item in item_list:
-        try:
-            item_data = find_item_details(item)
-        except Exception as e:
-            print(e)
-            logging.error('Error while collecting ocr data', exc_info=True)
-
-        response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
-
-        if response.status_code == 200:
-            print('Data sent successfully')
-            logging.info('Data sent successfully')
-        else:
-            print('Data could not be send')
-            logging.info(f'Data could not be send with status code {response.status_code}')
-            raise Exception(response.text)
+            if response.status_code == 200:
+                print('Data sent successfully')
+                logging.info('Data sent successfully')
+            else:
+                print('Data could not be send')
+                logging.info(f'Data could not be send with status code {response.status_code}')
+                collector.grab_image('log.png')
+                raise Exception(response.text)
+            
         
-    
-    # Logout
-    pg.keyDown('alt')
-    time.sleep(.2)
-    pg.press('tab')
-    time.sleep(.2)
-    pg.keyUp('alt')
-    pg.press('esc')
-    pg.press('esc')
-    pg.click(x=1902, y=340)
-    time.sleep(.5)
-    pg.click(x=1030, y=579)
+        # Logout
+        pg.keyDown('alt')
+        time.sleep(.2)
+        pg.press('tab')
+        time.sleep(.2)
+        pg.keyUp('alt')
+        pg.press('esc')
+        pg.press('esc')
+        pg.click(x=1902, y=340)
+        time.sleep(.5)
+        pg.click(x=1030, y=579)
 
-    # Leave character select
-    time.sleep(1)
-    pg.click(x=1299, y=729)
+        # Leave character select
+        time.sleep(1)
+        pg.click(x=1299, y=729)
+        
+        # Wait till next login
+        time.sleep(600)
+        
