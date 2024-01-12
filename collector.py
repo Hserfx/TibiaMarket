@@ -23,20 +23,27 @@ def get_time():
     return datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
 
-def gather_data(item_name = None):
+def gather_data(item_name = None, server_name = None):
     reader = easyocr.Reader(["en"], gpu=False)
     sell_text = reader.readtext(grab_image('sell_offers.png', bbox=(1020, 280, 1200, 330)))
     buy_text = reader.readtext(grab_image('buy_offers.png', bbox=(1020, 650, 1200, 700)))
     time = get_time()
+    
+    if not sell_text:
+        sell_offer = ''
+    else:
+        sell_offer = int(sell_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
 
+    if not buy_text:
+        buy_text = ''
+    else:
+        buy_offer = int(buy_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
 
-    buy_offer = int(buy_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
-    sell_offer = int(sell_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
-    print(buy_offer)
-    print(sell_offer)
     
     return json.dumps({"buy_offer": buy_offer,
             "sell_offer": sell_offer,
             "item_name": item_name,
+            "server_name": server_name,
             "time": time})
+
 

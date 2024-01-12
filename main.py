@@ -50,7 +50,7 @@ class WindowMgr:
 
 
 
-def find_item_details(item_name):
+def find_item_details(item_name, server_name):
     """!!!MARKET HAS TO BE OPENED ALREADY
     find item details and gather ocr data to dict
     """
@@ -67,7 +67,7 @@ def find_item_details(item_name):
     w.set_foreground()
 
     
-    return collector.gather_data(item_name)
+    return collector.gather_data(item_name, server_name)
 
 
 def save_to_elastic(data, ip, port):
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     listener.start()
 
     closed = False
-
+    server_name = 'Bona'
     #loop every 10min
     while not closed:
         # focus on tibia window (fullscreen 1920x1080)
@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
         for item in item_list:
             try:
-                item_data = find_item_details(item)
+                item_data = find_item_details(item, server_name)
             except Exception as e:
                 logging.error('Error while collecting ocr data', exc_info=True)
                 collector.grab_image('log.png')
