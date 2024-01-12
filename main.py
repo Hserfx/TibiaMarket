@@ -62,8 +62,6 @@ def find_item_details(item_name):
     pg.write(item_name)
     time.sleep(1)
     pg.click(x=665, y=494)
-    time.sleep(1)
-    pg.click(x=1121, y=787)
 
     w.find_window_wildcard(".*Podgląd w oknie.*")
     w.set_foreground()
