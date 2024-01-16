@@ -154,6 +154,7 @@ if __name__ == '__main__':
 
         # Open market (depot in front of you)
         depot = False
+
         while not depot:
             pg.press('w')
             pg.click(x=862, y=388, button='right')
@@ -161,7 +162,8 @@ if __name__ == '__main__':
             pg.click(x=1882, y=501, button='right')
             time.sleep(2)
             depot = check_depot(w)
-            
+            if not depot:
+                logging.info("Depot is occupied")
 
 
         # Collect ocr data from market and send to elastic
