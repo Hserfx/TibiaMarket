@@ -99,6 +99,16 @@ def save_to_elastic(data, ip, port):
     response = requests.post(url, headers=headers, data=payload, verify=False, auth=basic)
     return response
 
+def check_depot(window):
+    window.find_window_wildcard(".*Podgląd w oknie.*")
+    window.set_foreground()
+    if pg.locateOnScreen('market.png'):
+        return True
+    else:
+        return False
+
+    
+
 # program closing safety
 def on_press(key):
     """to work app needs to be after his final step,
@@ -143,10 +153,15 @@ if __name__ == '__main__':
         time.sleep(2)
 
         # Open market (depot in front of you)
-        pg.click(x=862, y=388, button='right')
-        time.sleep(2)
-        pg.click(x=1882, y=501, button='right')
-        time.sleep(2)
+        depot = False
+        while not depot:
+            pg.press('w')
+            pg.click(x=862, y=388, button='right')
+            time.sleep(2)
+            pg.click(x=1882, y=501, button='right')
+            time.sleep(2)
+            depot = check_depot(w)
+            
 
 
         # Collect ocr data from market and send to elastic
