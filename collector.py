@@ -9,7 +9,7 @@ import json
 def grab_image(path, bbox=None):
     """makes screenshoot, saving it and returns a NumPy array"""
 
-    img = ImageGrab.grab(all_screens=True)
+    img = ImageGrab.grab()
     if bbox:
         cropped_img = img.crop(bbox)
         cropped_img.save(path)
@@ -25,8 +25,8 @@ def get_time():
 
 def gather_data(item_name = None, server_name = None):
     reader = easyocr.Reader(["en"], gpu=False)
-    sell_text = reader.readtext(grab_image('sell_offers.png', bbox=(1020, 280, 1200, 330)))
-    buy_text = reader.readtext(grab_image('buy_offers.png', bbox=(1020, 650, 1200, 700)))
+    sell_text = reader.readtext(grab_image('sell_offers.png', bbox=(1020, 180, 1200, 230)))
+    buy_text = reader.readtext(grab_image('buy_offers.png', bbox=(1020, 550, 1200, 600)))
     time = get_time()
     
     if not sell_text:
@@ -35,7 +35,7 @@ def gather_data(item_name = None, server_name = None):
         sell_offer = int(sell_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
 
     if not buy_text:
-        buy_text = ''
+        buy_offer = ''
     else:
         buy_offer = int(buy_text[0][1].replace(',', '').replace('k', '000').replace(' ', ''))
 

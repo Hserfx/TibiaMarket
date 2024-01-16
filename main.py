@@ -50,12 +50,12 @@ class WindowMgr:
 
 
 
-def find_item_details(item_name, server_name):
+def find_item_details(window, item_name, server_name):
     """!!!MARKET HAS TO BE OPENED ALREADY
     find item details and gather ocr data to dict
     """
 
-    w = WindowMgr()
+    last_window = window._handle
     pg.click(x=757, y=747)
     time.sleep(.1)
     pg.click(x=714, y=744)
@@ -63,11 +63,15 @@ def find_item_details(item_name, server_name):
     time.sleep(1)
     pg.click(x=665, y=494)
 
-    w.find_window_wildcard(".*Podgląd w oknie.*")
-    w.set_foreground()
+    window.find_window_wildcard(".*Podgląd w oknie.*")
+    window.set_foreground()
 
-    
-    return collector.gather_data(item_name, server_name)
+    data = collector.gather_data(item_name, server_name)
+
+    window._handle = last_window
+    window.set_foreground()
+
+    return data   
 
 
 def save_to_elastic(data, ip, port):
@@ -100,9 +104,14 @@ def save_to_elastic(data, ip, port):
     return response
 
 def check_depot(window):
+    """Check if depot is opened"""
+    last_window = window._handle
     window.find_window_wildcard(".*Podgląd w oknie.*")
     window.set_foreground()
+    time.sleep(1)
     if pg.locateOnScreen('market.png'):
+        window._handle = last_window
+        window.set_foreground()
         return True
     else:
         return False
@@ -158,12 +167,13 @@ if __name__ == '__main__':
         while not depot:
             pg.press('w')
             pg.click(x=862, y=388, button='right')
-            time.sleep(2)
-            pg.click(x=1882, y=501, button='right')
-            time.sleep(2)
             depot = check_depot(w)
             if not depot:
                 logging.info("Depot is occupied")
+                time.sleep(10)
+            else:
+                pg.click(x=1882, y=501, button='right')
+                time.sleep(2)
 
 
         # Collect ocr data from market and send to elastic
@@ -172,7 +182,7 @@ if __name__ == '__main__':
 
         for item in item_list:
             try:
-                item_data = find_item_details(item, server_name)
+                item_data = find_item_details(w, item, server_name)
             except Exception as e:
                 logging.error('Error while collecting ocr data', exc_info=True)
                 collector.grab_image('log.png')
