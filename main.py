@@ -62,10 +62,13 @@ def find_item_details(window, item_name, server_name):
     pg.write(item_name)
     time.sleep(1)
     pg.click(x=665, y=494)
+    if item_name == 'quill':
+        pg.press('down')
 
     window.find_window_wildcard(".*Podgląd w oknie.*")
     window.set_foreground()
 
+    time.sleep(.3)
     data = collector.gather_data(item_name, server_name)
 
     window._handle = last_window
@@ -145,9 +148,9 @@ def login(password):
         pg.write(password)
         time.sleep(1)
         pg.press('enter')
-        time.sleep(2)
+        time.sleep(3)
         pg.press('enter')
-        time.sleep(2)
+        time.sleep(3)
 
 
 if __name__ == '__main__':
@@ -179,8 +182,11 @@ if __name__ == '__main__':
 
         while not depot:
             pg.press('w')
+            time.sleep(1)
             pg.click(x=862, y=388, button='right')
+            time.sleep(1)
             depot = check_depot(w)
+            time.sleep(1)
             if not depot:
                 if not check_if_logged(w):
                     for _ in range(0, 10):
