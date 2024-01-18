@@ -116,6 +116,16 @@ def check_depot(window):
     else:
         return False
 
+def check_if_logged(window):
+    """Check if bot is logged in"""
+    last_window = window._handle
+    window.find_window_wildcard(".*Podgląd w oknie.*")
+    window.set_foreground()
+    time.sleep(1)
+    if pg.locateOnScreen('boots.png'):
+        return True
+    else:
+        return False
     
 
 # program closing safety
@@ -131,6 +141,13 @@ def on_press(key):
     except AttributeError:
         pass
 
+def login(password):
+        pg.write(password)
+        time.sleep(1)
+        pg.press('enter')
+        time.sleep(2)
+        pg.press('enter')
+        time.sleep(2)
 
 
 if __name__ == '__main__':
@@ -154,12 +171,8 @@ if __name__ == '__main__':
         w.set_foreground()
 
         # login
-        pg.write(config['PASS'])
-        time.sleep(1)
-        pg.press('enter')
-        time.sleep(2)
-        pg.press('enter')
-        time.sleep(2)
+        login(config['PASS'])
+
 
         # Open market (depot in front of you)
         depot = False
@@ -169,6 +182,16 @@ if __name__ == '__main__':
             pg.click(x=862, y=388, button='right')
             depot = check_depot(w)
             if not depot:
+                if not check_if_logged(w):
+                    for _ in range(0, 10):
+                        pg.press('esc')
+                        time.sleep(.3)
+                        pg.press('enter')
+                    login(config['PASS'])
+                    if not check_if_logged(w):
+                        logging.info('Something is wrong.')
+                    else:
+                        continue
                 logging.info("Depot is occupied")
                 time.sleep(10)
             else:
