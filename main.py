@@ -213,9 +213,16 @@ if __name__ == '__main__':
             try:
                 item_data = find_item_details(w, item, server_name)
             except Exception as e:
-                logging.error('Error while collecting ocr data', exc_info=True)
-                collector.grab_image('log.png')
-                raise Exception(e)
+                while not check_if_logged(w):
+                    for _ in range(0, 10):
+                        pg.press('esc')
+                        time.sleep(.5)
+                        pg.press('enter')
+                    login(config['PASS'])
+                if check_if_logged(w):
+                    logging.error('Error while collecting ocr data', exc_info=True)
+                    collector.grab_image('log.png')
+                    raise Exception(e)
 
             response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
 
