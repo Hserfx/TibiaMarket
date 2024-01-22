@@ -124,10 +124,14 @@ def check_if_logged(window):
     last_window = window._handle
     window.find_window_wildcard(".*Podgląd w oknie.*")
     window.set_foreground()
-    time.sleep(1)
+    time.sleep(2)
     if pg.locateOnScreen('boots.png'):
+        window._handle = last_window
+        window.set_foreground()
         return True
     else:
+        window._handle = last_window
+        window.set_foreground()
         return False
     
 
@@ -150,7 +154,26 @@ def login(password):
         pg.press('enter')
         time.sleep(3)
         pg.press('enter')
-        time.sleep(3)
+        time.sleep(2)
+
+def logout():
+    pg.press('esc')
+    pg.click(x=1902, y=340)
+    time.sleep(.5)
+    pg.click(x=1030, y=579)
+
+    time.sleep(1)
+    pg.click(x=1299, y=729)
+
+def change_character():
+    pg.press('esc')
+    pg.click(x=1902, y=340)
+    time.sleep(.5)
+    pg.click(x=1030, y=579)
+    time.sleep(2)
+    pg.press('down')
+    pg.press('enter')
+    time.sleep(2)
 
 
 if __name__ == '__main__':
@@ -164,26 +187,25 @@ if __name__ == '__main__':
 
     listener.start()
 
+    # focus on tibia window (fullscreen 1920x1080)
+    w = WindowMgr()
+    w.find_window_wildcard_exact("Tibia")
+    w.set_foreground()
+
+    # login
+    login(config['PASS'])
+    
     closed = False
-    server_name = 'Bona'
+    server_list = ['Bona', 'Secura', 'Harmonia', 'Inabra', 'Thyrira', 'Antica']
     #loop every 10min
     while not closed:
-        # focus on tibia window (fullscreen 1920x1080)
-        w = WindowMgr()
-        w.find_window_wildcard_exact("Tibia")
-        w.set_foreground()
-
-        # login
-        login(config['PASS'])
 
 
-        # Open market (depot in front of you)
-        depot = False
+        for i in range(0, len(server_list)):
 
-        while not depot:
-            pg.press('w')
+            pg.press('a')
             time.sleep(1)
-            pg.click(x=862, y=388, button='right')
+            pg.click(x=786, y=456, button='right')
             time.sleep(1)
             depot = check_depot(w)
             time.sleep(1)
@@ -197,61 +219,53 @@ if __name__ == '__main__':
                     if not check_if_logged(w):
                         logging.info('Something is wrong.')
                     else:
-                        continue
+                        break
                 logging.info("Depot is occupied")
-                time.sleep(10)
+                if i == len(server_list)-1:
+                    logout()
+                    time.sleep(1)
+                    login(config['PASS'])
+                else:
+                    change_character()
             else:
                 pg.click(x=1882, y=501, button='right')
                 time.sleep(2)
 
 
-        # Collect ocr data from market and send to elastic
-        with open('item_list.txt') as file:
-            item_list = [item.rstrip() for item in file.readlines()]
+            # Collect ocr data from market and send to elastic
+            with open('item_list.txt') as file:
+                item_list = [item.rstrip() for item in file.readlines()]
 
-        for item in item_list:
-            try:
-                item_data = find_item_details(w, item, server_name)
-            except Exception as e:
-                while not check_if_logged(w):
-                    for _ in range(0, 10):
-                        pg.press('esc')
-                        time.sleep(.5)
-                        pg.press('enter')
-                    login(config['PASS'])
-                if check_if_logged(w):
-                    logging.error('Error while collecting ocr data', exc_info=True)
+            for item in item_list:
+                try:
+                    item_data = find_item_details(w, item, server_list[i])
+                except Exception as e:
+                    while not check_if_logged(w):
+                        for _ in range(0, 10):
+                            pg.press('esc')
+                            time.sleep(.5)
+                            pg.press('enter')
+                        login(config['PASS'])
+                    if check_if_logged(w):
+                        logging.error('Error while collecting ocr data', exc_info=True)
+                        collector.grab_image('log.png')
+                        raise Exception(e)
+
+                response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
+
+                if response.status_code == 200:
+                    print('Data sent successfully')
+                    logging.info('Data sent successfully')
+                else:
+                    print('Data could not be send')
+                    logging.info(f'Data could not be send with status code {response.status_code}')
                     collector.grab_image('log.png')
-                    raise Exception(e)
-
-            response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
-
-            if response.status_code == 200:
-                print('Data sent successfully')
-                logging.info('Data sent successfully')
-            else:
-                print('Data could not be send')
-                logging.info(f'Data could not be send with status code {response.status_code}')
-                collector.grab_image('log.png')
-                raise Exception(response.text)
+                    raise Exception(response.text)
+                
+            if i == len(server_list)-1:
+                logout()
+                time.sleep(600)
+                login(config['PASS'])
+            else:    
+                change_character()
             
-        
-        # Logout
-        pg.keyDown('alt')
-        time.sleep(.2)
-        pg.press('tab')
-        time.sleep(.2)
-        pg.keyUp('alt')
-        pg.press('esc')
-        pg.press('esc')
-        pg.click(x=1902, y=340)
-        time.sleep(.5)
-        pg.click(x=1030, y=579)
-
-        # Leave character select
-        time.sleep(1)
-        pg.click(x=1299, y=729)
-        
-        # Wait till next login
-        time.sleep(600)
-        

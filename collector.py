@@ -9,9 +9,7 @@ import numpy as np
 reader = easyocr.Reader(["en"], gpu=False)
 
 def grab_image(path, bbox=None, hsv=False):
-    """makes screenshoot, saving it and returns a NumPy array
-    use th3=True for ocr
-    """
+    """makes screenshoot, saving it and returns a NumPy array"""
 
     img = ImageGrab.grab()
     if bbox:
