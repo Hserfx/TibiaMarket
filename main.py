@@ -6,6 +6,7 @@ import time
 import json
 from dotenv import dotenv_values
 import collector
+from pymongo_database import MongoTibiaDB
 
 
 class WindowMgr:
@@ -77,34 +78,6 @@ def find_item_details(window, item_name, server_name):
     return data   
 
 
-def save_to_elastic(data, ip, port):
-    """save json data to elasticsearch http://{ip:port}/_bulk?pretty"""
-
-    import requests
-    config = dotenv_values('.env')
-    url = f"http://{ip}:{port}/_bulk?pretty"
-
-    headers = {
-        "Authorization": "eU5ZTzI0d0JFLXhhNzVSVkFqUVU6UTZrYU5wNVNTUE81cEI5WV9jNG1jQQ==",
-        "Content-Type": "application/json"
-    }
-
-    basic = requests.auth.HTTPBasicAuth(config['BASIC_AUTH'], config['BASIC_AUTH'])
-    url = "https://192.168.0.201:9200/_bulk?pretty"
-    headers = {
-        "Authorization": "eU5ZTzI0d0JFLXhhNzVSVkFqUVU6UTZrYU5wNVNTUE81cEI5WV9jNG1jQQ==",
-        "Content-Type": "application/x-ndjson"
-    }
-    
-    index_data = '{ "index" : { "_index" : "tibiamarket-data" } }'
-    post_data = f"""
-    {index_data}
-    {data}
-    """
-    payload = '\n' + post_data + '\n'
-
-    response = requests.post(url, headers=headers, data=payload, verify=False, auth=basic)
-    return response
 
 def check_depot(window):
     """Check if depot is opened"""
@@ -133,7 +106,7 @@ def check_if_logged(window):
         window._handle = last_window
         window.set_foreground()
         return False
-    
+
 
 # program closing safety
 def on_press(key):
@@ -161,7 +134,6 @@ def logout():
     pg.click(x=1902, y=340)
     time.sleep(.5)
     pg.click(x=1030, y=579)
-
     time.sleep(1)
     pg.click(x=1299, y=729)
 
@@ -182,6 +154,9 @@ if __name__ == '__main__':
 
     config = dotenv_values('.env')
     logging.basicConfig(filename='app.log', filemode='w', format='%(asctime)s - %(message)s')
+
+    # Connect to MongoDB DataBase
+    MongoTibiaDB.initialize()
 
     listener = keyboard.Listener(on_press=on_press)
 
@@ -213,8 +188,8 @@ if __name__ == '__main__':
                 if not check_if_logged(w):
                     for _ in range(0, 10):
                         pg.press('esc')
-                        time.sleep(.3)
-                        pg.press('enter')
+                        time.sleep(.5)
+                    time.sleep(1200)
                     login(config['PASS'])
                     if not check_if_logged(w):
                         logging.info('Something is wrong.')
@@ -235,6 +210,7 @@ if __name__ == '__main__':
             # Collect ocr data from market and send to elastic
             with open('item_list.txt') as file:
                 item_list = [item.rstrip() for item in file.readlines()]
+                file.close()
 
             for item in item_list:
                 try:
@@ -244,14 +220,23 @@ if __name__ == '__main__':
                         for _ in range(0, 10):
                             pg.press('esc')
                             time.sleep(.5)
-                            pg.press('enter')
+                        time.sleep(1200)
                         login(config['PASS'])
+                        if check_if_logged(w):
+                            break
+                        else:
+                            logging.error('Something is wrong...', exc_info=True)
+                            raise Exception(e)
                     if check_if_logged(w):
                         logging.error('Error while collecting ocr data', exc_info=True)
                         collector.grab_image('log.png')
                         raise Exception(e)
 
-                response = save_to_elastic(item_data, ip='192.168.0.201', port='9200')
+            
+                # save data to elastic and mongoDB
+                response = collector.save_to_elastic(json.dumps(item_data), '192.168.0.201', '9200', config['BASIC_AUTH'], config['BASIC_AUTH'])
+                MongoTibiaDB.insert('items', item_data)
+
 
                 if response.status_code == 200:
                     print('Data sent successfully')
